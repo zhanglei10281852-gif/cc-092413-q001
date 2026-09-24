@@ -21,6 +21,10 @@ class ConflictError(DomainError):
     code = "conflict"
 
 
+class ResidentHasAffairsError(ConflictError):
+    code = "resident_has_affairs"
+
+
 class AuthenticationError(DomainError):
     status_code = 401
     code = "authentication_failed"

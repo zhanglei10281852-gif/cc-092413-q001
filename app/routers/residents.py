@@ -1,7 +1,12 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
+from app.api.dependencies import optional_principal
+from app.core.errors import NotFoundError
+from app.core.security import Principal
 from app.database import get_connection
 from app.models import ResidentCreate, ResidentUpdate
+from app.services.audit import AuditContext
+from app.services.residents import DEFAULT_OPERATOR, ResidentService
 
 router = APIRouter(prefix="/residents", tags=["居民管理"])
 
@@ -101,11 +106,17 @@ def update_resident(resident_id: int, data: ResidentUpdate):
 
 
 @router.delete("/{resident_id}")
-def delete_resident(resident_id: int):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM residents WHERE id = ?", (resident_id,))
-    conn.commit()
-    if cursor.rowcount == 0:
-        raise HTTPException(status_code=404, detail="居民不存在")
-    return {"message": "删除成功"}
+def delete_resident(
+    resident_id: int,
+    archive: bool = Query(False, description="归档清理：同时删除该居民的关联事务"),
+    operator: Optional[str] = Query(None, description="操作者姓名，用于审计留痕"),
+    principal: Optional[Principal] = Depends(optional_principal),
+):
+    if principal is not None:
+        actor = AuditContext(principal.user_id, principal.display_name)
+    else:
+        actor = AuditContext(None, (operator or "").strip() or DEFAULT_OPERATOR)
+    try:
+        return ResidentService(get_connection()).delete(resident_id, archive=archive, actor=actor)
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="居民不存在") from None

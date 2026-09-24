@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import Header
 
-from app.core.errors import AuthenticationError
+from app.core.errors import AuthenticationError, DomainError
 from app.core.security import Principal
 from app.database import get_connection
 from app.services.auth import AuthService
@@ -15,3 +15,16 @@ def current_principal(authorization: str | None = Header(default=None)) -> Princ
     if not token:
         raise AuthenticationError("会话令牌为空")
     return AuthService(get_connection()).principal(token)
+
+
+def optional_principal(authorization: str | None = Header(default=None)) -> Principal | None:
+    """解析可选的 Bearer 会话；未携带或令牌无效时按匿名处理，不拒绝请求。"""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization[7:].strip()
+    if not token:
+        return None
+    try:
+        return AuthService(get_connection()).principal(token)
+    except DomainError:
+        return None
