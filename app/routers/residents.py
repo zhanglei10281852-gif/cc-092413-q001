@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Header, HTTPException, Query
 from typing import Optional
-from app.database import get_connection
-from app.models import ResidentCreate, ResidentUpdate
+from app.database import get_connection, transaction
+from app.models import ResidentArchiveRequest, ResidentCreate, ResidentUpdate
+from app.services.residents import Operator, ResidentArchiveService
 
 router = APIRouter(prefix="/residents", tags=["居民管理"])
 
@@ -101,11 +102,27 @@ def update_resident(resident_id: int, data: ResidentUpdate):
 
 
 @router.delete("/{resident_id}")
-def delete_resident(resident_id: int):
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM residents WHERE id = ?", (resident_id,))
-    conn.commit()
-    if cursor.rowcount == 0:
-        raise HTTPException(status_code=404, detail="居民不存在")
-    return {"message": "删除成功"}
+def delete_resident(resident_id: int, x_operator: Optional[str] = Header(default=None, alias="X-Operator")):
+    operator = Operator.from_header(x_operator)
+    service = ResidentArchiveService(get_connection())
+    # 事务前预检：居民不存在或仍有关联事务时直接给出稳定的业务错误，
+    # 拒绝尝试也会留下操作者与档案标识的审计记录。
+    service.assert_deletable(resident_id, operator)
+    with transaction(immediate=True) as connection:
+        return ResidentArchiveService(connection).delete_resident(resident_id, operator)
+
+
+@router.post("/{resident_id}/archive")
+def archive_resident(
+    resident_id: int,
+    data: ResidentArchiveRequest,
+    x_operator: Optional[str] = Header(default=None, alias="X-Operator"),
+):
+    operator = Operator.from_header(x_operator)
+    with transaction(immediate=True) as connection:
+        return ResidentArchiveService(connection).archive_resident(
+            resident_id,
+            operator,
+            reason=data.reason,
+            confirm=data.confirm,
+        )

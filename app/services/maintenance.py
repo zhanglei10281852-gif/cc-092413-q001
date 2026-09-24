@@ -37,6 +37,8 @@ class MaintenanceService:
         "user_roles",
         "residents",
         "affairs",
+        "resident_archives",
+        "affair_archives",
         "announcements",
         "petitions",
         "petition_urges",

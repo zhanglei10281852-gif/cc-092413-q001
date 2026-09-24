@@ -141,6 +141,31 @@ CREATE TABLE IF NOT EXISTS affairs (
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS resident_archives (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    resident_id INTEGER NOT NULL,
+    resident_name TEXT NOT NULL,
+    id_card TEXT NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    affair_count INTEGER NOT NULL DEFAULT 0,
+    reason TEXT,
+    archived_by TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_resident_archives_resident ON resident_archives(resident_id);
+
+CREATE TABLE IF NOT EXISTS affair_archives (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    archive_id INTEGER NOT NULL REFERENCES resident_archives(id),
+    affair_id INTEGER NOT NULL,
+    resident_id INTEGER NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_affair_archives_archive ON affair_archives(archive_id);
+
 CREATE TABLE IF NOT EXISTS announcements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,

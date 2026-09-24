@@ -50,6 +50,11 @@ class ResidentUpdate(BaseModel):
     household_head: Optional[str] = None
 
 
+class ResidentArchiveRequest(BaseModel):
+    reason: Optional[str] = Field(None, max_length=200)
+    confirm: bool = False
+
+
 class AffairCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     category: AffairCategory
